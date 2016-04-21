@@ -1,0 +1,107 @@
+<html>
+<head>
+    <title>WebGl Thing</title>
+    <script src="driver.js" type="text/javascript"></script>
+    <style>
+        * {
+            margin:0;
+            padding:0;
+        }
+        .stats table * {
+            color: cornflowerblue;
+            font-family: Sans-Serif;
+        }
+    </style>
+    <script id="shader-vs" type="x-shader/x-vertex">
+precision mediump float;
+attribute vec2 vertPosition;
+void main() {
+  gl_Position = vec4(vertPosition, 0.0, 1.0);
+}
+    </script>
+    <script id="shader-fs" type="x-shader/x-fragment">
+#extension GL_OES_standard_derivatives : enable
+
+#ifdef GL_ES
+precision mediump float;
+#endif
+
+
+uniform float time;
+uniform vec2 resolution;
+const int miceLength = 100;
+uniform vec2 mice[miceLength];
+
+const float PI = 3.1415926535897932384626433832795;
+const float PI2 = 2.0 * PI;
+
+
+// cycle smoothly from 0 to 1 over the specified period in seconds
+float timeCycle(void) {
+    const float period = 3.0;
+    float smooth = .5 * (1.0 + sin(time * PI2/period));
+    return smooth;
+}
+
+
+// color via sin(x)/x 
+vec3 syncColor(float distance) {
+    float cycle = timeCycle();
+    const float rippleMin = 20.0;
+    const float rippleMax = rippleMin * 6.0;
+    float rippleFactor = rippleMin + ((rippleMax - rippleMin) * cycle);
+    
+    rippleFactor = 36.0;
+    float d = distance * rippleFactor;
+    float color = sin(d) / d;
+    color = color / 3.0;
+    return vec3(color, color, color);
+}
+
+vec3 attenuatedWaveColor(float distance) {
+    float decayRate = -4.0;
+    float scale = .5;
+    float offset = 1.0;
+    float stretch = 40.0 + distance;
+    float cycle = time * 2.0;
+
+    float decay = exp(decayRate * distance);
+    float wiggle = scale * (offset + cos(distance * stretch - cycle)); 
+    float color = wiggle * decay;
+//    color = color / float(miceLength);
+    return vec3(color, color, color);
+}
+
+
+vec3 colorContrib(vec2 center) {
+    vec2 fromCenter = abs(center - gl_FragCoord.xy / resolution.xy);
+    float distance = length(fromCenter);
+    return attenuatedWaveColor(distance);
+}
+
+
+void main( void ) {
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    for (int i =0; i < miceLength; i++) {
+        color += colorContrib(mice[i]);
+    }
+    color = colorContrib(mice[0]);
+
+    gl_FragColor = vec4( color, 1.0 );
+}
+
+    </script>
+</head>
+
+<body onload="start();">
+    <div class="stats" style="position:fixed; left:10; top: 10;">
+        <table>
+            <tr> <td> Frame rate:</td> 
+                 <td> <span id="frameRate"> 0</span></td>
+            </tr>
+        </table>
+    </div>
+    <canvas id="shader"></canvas>
+</body>
+
+</html>
