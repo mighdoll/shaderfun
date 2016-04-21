@@ -60,17 +60,36 @@ function setupCanvas() {
     return canvas;
 }
 
+var currentHue = 0.0;
 function setupEvents(canvas) {
-    for (var i = 0; i < miceLength * 2; i++) {
+    for (var i = 0; i < miceLength * 4; i++) {
         mice[i] = [.5];
     }
+    var markov = randomMarkov(.01, .1, .25);
 
     canvas.onmousemove = function(e) {
         var x = e.clientX / window.innerWidth,
-            y = 1 - e.clientY / window.innerHeight;
+            y = 1 - e.clientY / window.innerHeight,
+            time = lastFrameTime / 1000.0;
 
-        var dropLast = mice.slice(0, mice.length - 2);
-        mice = [x,y].concat(dropLast);
+        var dropLast = mice.slice(0, mice.length - 4);
+        currentHue += markov();
+        mice = [x,y,time,currentHue].concat(dropLast);
+    };
+}
+
+function randomMarkov(maxValue, probability, newState) {
+    function randomFromAbs(v) {
+      return (Math.random() * v * 2) - v;
+    }
+
+    return function() {
+      var value = randomFromAbs(maxValue);
+      if (Math.random() <= probability) {
+         value += randomFromAbs(newState);
+      }
+      return value;
+
     };
 }
 
@@ -101,9 +120,9 @@ function render(millis) {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.uniform1f(program.time, millis / 1000);
+    gl.uniform1f(program.time, lastFrameTime/1000.0);
     gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
-    gl.uniform2fv(program.mice, mice);
+    gl.uniform4fv(program.mice, mice);
 
     gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
     requestAnimationFrame(render);

@@ -30,7 +30,7 @@ precision mediump float;
 uniform float time;
 uniform vec2 resolution;
 const int miceLength = 100;
-uniform vec2 mice[miceLength];
+uniform vec4 mice[miceLength]; // [x,y,time,hue]
 
 const float PI = 3.1415926535897932384626433832795;
 const float PI2 = 2.0 * PI;
@@ -41,6 +41,12 @@ float timeCycle(void) {
     const float period = 3.0;
     float smooth = .5 * (1.0 + sin(time * PI2/period));
     return smooth;
+}
+
+vec3 hsv2rgb(vec3 c) {
+    vec4 K = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);
+    vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+    return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
 
@@ -58,34 +64,34 @@ vec3 syncColor(float distance) {
     return vec3(color, color, color);
 }
 
-vec3 attenuatedWaveColor(float distance) {
+vec3 attenuatedWaveColor(float distance, float mouseTime, float hue) {
     float decayRate = -4.0;
     float scale = .5;
     float offset = 1.0;
     float stretch = 40.0 + distance;
-    float cycle = time * 2.0;
+    float cycle = (mouseTime + time) * 5.0;
 
     float decay = exp(decayRate * distance);
     float wiggle = scale * (offset + cos(distance * stretch - cycle)); 
-    float color = wiggle * decay;
-//    color = color / float(miceLength);
-    return vec3(color, color, color);
+    float value = wiggle * decay;
+    value /= float(miceLength / 2);
+    float saturation = .7;
+    vec3 rgb = hsv2rgb(vec3(hue, saturation, value));
+    return rgb;
 }
 
 
-vec3 colorContrib(vec2 center) {
-    vec2 fromCenter = abs(center - gl_FragCoord.xy / resolution.xy);
+vec3 colorContrib(vec4 center) {
+    vec2 fromCenter = abs(center.xy - gl_FragCoord.xy / resolution.xy);
     float distance = length(fromCenter);
-    return attenuatedWaveColor(distance);
+    return attenuatedWaveColor(distance, center.z, center.w);
 }
-
 
 void main( void ) {
     vec3 color = vec3(0.0, 0.0, 0.0);
     for (int i =0; i < miceLength; i++) {
         color += colorContrib(mice[i]);
     }
-    color = colorContrib(mice[0]);
 
     gl_FragColor = vec4( color, 1.0 );
 }
