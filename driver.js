@@ -1,7 +1,7 @@
 var gl;
 var program;
 
-var miceLength = 100;
+var miceLength = 50;
 var mice = [];
 
 var triangleVertices = [
@@ -16,7 +16,8 @@ var triangleVertices = [
 
 function setupWebGL(canvas) {
     var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
-        program = setupShaders(gl);
+        shaderSourceParams = {miceLength: miceLength},
+        program = setupShaders(gl, shaderSourceParams);
 
     setupModel(gl, program);
     setupUniforms(gl, program);
@@ -38,9 +39,9 @@ function setupWebGL(canvas) {
         program.resolution = gl.getUniformLocation(program, "resolution");
     }
 
-    function setupShaders() {
-        var vertexShader = compileShader(gl, 'shader-vs');
-        var fragmentShader = compileShader(gl, 'shader-fs');
+    function setupShaders(gl, params) {
+        var vertexShader = compileShader(gl, 'shader-vs', params);
+        var fragmentShader = compileShader(gl, 'shader-fs', params);
 
         var program = gl.createProgram();
         gl.attachShader(program, vertexShader);
@@ -158,9 +159,11 @@ function render(millis, tickFn) {
 
 
 // Load a shader program from a DOM script element
-function compileShader(gl, id) {
+function compileShader(gl, id, params) {
   var script = document.getElementById(id),
-      programText = collectText(script.firstChild),
+      rawText = collectText(script.firstChild),
+      template = _.template(rawText),
+      programText = template(params),
       shader = createShader(script.type);
 
   gl.shaderSource(shader, programText);

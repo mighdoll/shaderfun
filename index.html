@@ -1,6 +1,7 @@
 <html>
 <head>
     <title>WebGl Thing</title>
+    <script src="bower_components/lodash/dist/lodash.js" type="text/javascript"></script>
     <script src="driver.js" type="text/javascript"></script>
     <style>
         * {
@@ -29,7 +30,7 @@ precision mediump float;
 
 uniform float time;
 uniform vec2 resolution;
-const int miceLength = 100;
+const int miceLength = ${miceLength};
 uniform vec4 mice[miceLength]; // [x,y,time,hue]
 
 const float PI = 3.1415926535897932384626433832795;

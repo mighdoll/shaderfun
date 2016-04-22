@@ -1,0 +1,6 @@
+
+## Building
+
+$ bower install lodash
+
+
