@@ -86,14 +86,16 @@ function focus(elem) {
 
 /** setup handling of mouse and keyboard events. */
 function setupEvents(canvas, frameCounter) {
+    var randomHue = randomMarkov01(.05, .1, .5),
+        mouse = setupMouse(canvas);
+    setupKeys(canvas, mouse);
 
-    setupMouse(canvas);
-    setupKeys(canvas);
-
-    function setupKeys(canvas) {
+    function setupKeys(canvas, mouse) {
         var spaceKey = 0x20,
             rightArrow = 0x27,
             leftArrow = 0x25,
+            downArrow = 0x28,
+            cKey = 0x43,
             frameMillis = 1000/60;
         canvas.onkeydown = function(e) {
             if (e.keyCode == spaceKey) {
@@ -108,18 +110,26 @@ function setupEvents(canvas, frameCounter) {
             } else if (e.keyCode == leftArrow && frozen) {
                frozen -= frameMillis;
                frameCounter();
+            } else if (e.keyCode == downArrow) {
+               addWave(mouse.mouseXY(), lastRenderMillis);
+            } else if (e.keyCode == cKey) {
+               clearWaves();
             } else {
               console.log(e.keyCode);
             }
          }
     }
 
+
+    function addWave(mouseXY, millis) {
+        var time = millis / 1000.0;
+        var dropLast = waves.slice(0, waves.length - 4);
+        waves = [mouseXY[0], mouseXY[1], time, randomHue()].concat(dropLast);
+    }
+
     function setupMouse(canvas) {
-        var currentHue = 0.0, 
-            mousedown = false,
-            mouseX = .5,
-            mouseY = .5,
-            markov = randomMarkov(.01, .1, .5);
+        var mousedown = false,
+            mouseXY = [.5, .5];
 
         canvas.onmousedown = function(e) {
             focus(canvas);
@@ -132,31 +142,67 @@ function setupEvents(canvas, frameCounter) {
         canvas.onmousemove = saveMouse;
 
         function saveMouse(e) {
-             mouseX = e.clientX / window.innerWidth;
-             mouseY = 1 - e.clientY / window.innerHeight;
+             mouseXY = [e.clientX / window.innerWidth,
+                        1 - e.clientY / window.innerHeight];
         }
+
 
         /** return a function to be called on every frame.
          *  it will start a wave if the mouse is down */
         var mouseTick = function(millis) {
             if (mousedown) {
-                var time = millis / 1000.0;
-
-                currentHue += markov();
-                var dropLast = waves.slice(0, waves.length - 4);
-                waves = [mouseX, mouseY, time, currentHue].concat(dropLast);
+                addWave(mouseXY, millis);
             }
         }
-        tickFns.push(mouseTick);      
+        tickFns.push(mouseTick);
+
+        return {mouseXY: function() {return mouseXY; }}      
     }
 
 }
 
-function setupWaves() {
-    for (var i = 0; i < wavesLength * 4; i++) {
-        waves[i] = [.5];
+function clearWaves() {
+    for (var i = 0; i < wavesLength * 4;) {
+        waves[i++] = [0.5];
+        waves[i++] = [0.5];
+        waves[i++] = [-1.0];
+        waves[i++] = [0.0];
     }
 }
+
+/** return a random number in the range [0, 1] */
+function randomMarkov01(thisState, newStateChance, newState) {
+    var markov = randomMarkovOffset.apply(this, arguments);
+    var value = Math.random();
+
+    return function() {
+        var offset = markov();
+
+        value += offset;
+
+        if (value > 1.0) {
+            value = value - Math.trunc(value);
+        } else if (value < 0.0) {
+            value = value - Math.trunc(value) + 1;
+        }
+
+        return value;
+    }
+}
+
+function initWaves() {
+    var randomX = randomMarkov01(.1, .1, .4),
+        randomY = randomMarkov01(.1, .1, .4),
+        randomTime = randomMarkov01(.5, 0),
+        randomHue = randomMarkov01(.05, .1, .5);
+    for (var i = 0; i < wavesLength * 4;) {
+        waves[i++] = [randomX()];
+        waves[i++] = [randomY()];
+        waves[i++] = [randomTime()];
+        waves[i++] = [randomHue()];
+    }
+}
+
 
 function init() {
     var canvas = setupCanvas(),
@@ -168,7 +214,7 @@ function init() {
           frameCounter(); 
         }
     });
-    setupWaves();
+    initWaves();
     setupEvents(canvas, frameCounter);
     program = setup.program;
     gl = setup.gl;
@@ -223,7 +269,7 @@ function render(millis) {
  * @param thisState - a random number from the first range will be in [-thisState, thisState)
  * @param newState - a random number from the second range will be in [-newState, newState)
  */
-function randomMarkov(thisState, newStateChance, newState) {
+function randomMarkovOffset(thisState, newStateChance, newState) {
     function randomFromAbs(v) {
       return (Math.random() * v * 2) - v;
     }

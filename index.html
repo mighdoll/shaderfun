@@ -61,7 +61,7 @@ vec3 attenuatedWaveColor(float distance, float startTime, float hue) {
     float decay = exp(decayRate * distance);
     float wiggle = scale * (offset + cos(distance * stretch - cycle)); 
     float value = wiggle * decay;
-    value /= float(wavesLength / 2);
+    value /= float(wavesLength / 8);
     float saturation = .7;
     vec3 rgb = hsv2rgb(vec3(hue, saturation, value));
     return rgb;
@@ -69,17 +69,19 @@ vec3 attenuatedWaveColor(float distance, float startTime, float hue) {
 
 
 /** color from one wave */
-vec3 colorContrib(vec4 center) {
-    vec2 fromCenter = abs(center.xy - gl_FragCoord.xy / resolution.xy);
+vec3 colorContrib(vec4 wave) {
+    vec2 fromCenter = abs(wave.xy - gl_FragCoord.xy / resolution.xy);
     float distance = length(fromCenter);
-    return attenuatedWaveColor(distance, center.z, center.w);
+    return attenuatedWaveColor(distance, wave.z, wave.w);
 }
 
 /** accumulate a color from all the waves for this pixel. */
 void main( void ) {
     vec3 color = vec3(0.0, 0.0, 0.0);
     for (int i =0; i < wavesLength; i++) {
-        color += colorContrib(waves[i]);
+        if (waves[i].z > 0.0) {
+            color += colorContrib(waves[i]);
+        }
     }
 
     gl_FragColor = vec4( color, 1.0 );
