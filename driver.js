@@ -1,8 +1,18 @@
+(function() {
+
+window.start = start;
+
+/** waves are passed to the shader
+ * each wave has four elements: x, y, time, hue
+ * x,y are the floating point coordinates of the mouse in the range [0,1]
+ * time is fractional seconds.
+ * hue is in the range [0,1]
+ */
+var wavesLength = 50;
+var waves = []; 
+
 var gl;
 var program;
-
-var wavesLength = 50;
-var waves = [];
 
 var triangleVertices = [
    -1.0, -1.0,
@@ -13,6 +23,9 @@ var triangleVertices = [
     1.0,  1.0,
    -1.0,  1.0
 ];
+
+var tickFns = [];
+var freeze = false;
 
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
@@ -73,10 +86,6 @@ function setupEvents(canvas) {
         mouseY = .5,
         markov = randomMarkov(.01, .1, .5);
 
-    for (var i = 0; i < wavesLength * 4; i++) {
-        waves[i] = [.5];
-    }
-
     canvas.onmousedown = function(e) {
         saveMouse(e);
         mousedown = true;
@@ -93,7 +102,7 @@ function setupEvents(canvas) {
 
     /** return a function to be called on every frame.
      *  it will start a wave if the mouse is down */
-    return function(millis) {
+    var mouseTick = function(millis) {
         if (mousedown) {
             var time = millis / 1000.0;
 
@@ -102,6 +111,64 @@ function setupEvents(canvas) {
             waves = [mouseX, mouseY, time, currentHue].concat(dropLast);
         }
     }
+    tickFns.push(mouseTick);
+}
+
+function setupWaves() {
+    for (var i = 0; i < wavesLength * 4; i++) {
+        waves[i] = [.5];
+    }
+}
+
+function init() {
+    var canvas = setupCanvas(),
+        setup = setupWebGL(canvas);
+
+    tickFns.push(frameRateCounter());
+    setupWaves();
+    setupEvents(canvas);
+    program = setup.program;
+    gl = setup.gl;
+}
+
+/* begin webgl animation */
+function start() {
+    init();
+    requestAnimationFrame(render);
+}
+
+/** return a function that will update the frame rate display */
+function frameRateCounter() {
+    var lastReportSecond = 0;
+    var framesThisSecond = 0;
+    return function(millis) {
+      var second = Math.trunc(millis / 1000.0);
+      if (second != lastReportSecond) {
+          document.getElementById("frameRate").textContent = framesThisSecond;
+          lastReportSecond = second;
+          framesThisSecond = 1;
+      } else {
+          framesThisSecond++;
+      }
+    };
+}
+
+/** render one frame, and repeat */
+function render(millis) {
+    if (freeze) {
+        millis = freeze;
+    }
+    tickFns.forEach(function(fn) { fn(millis);});
+
+    gl.clearColor(0, 0, 0, 0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    gl.uniform1f(program.time, millis/1000.0);
+    gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
+    gl.uniform4fv(program.waves, waves);
+
+    gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
+    requestAnimationFrame(render);
 }
 
 /** return a function that returns a random number in one of two ranges. 
@@ -124,51 +191,6 @@ function randomMarkov(thisState, newStateChance, newState) {
       return value;
     };
 }
-
-/* begin webgl animation */
-function start() {
-    var canvas = setupCanvas(),
-        setup = setupWebGL(canvas);
-
-    var mouseTick = setupEvents(canvas);
-    program = setup.program;
-    gl = setup.gl;
-    requestAnimationFrame(function(m) { render(m, mouseTick); });
-}
-
-var lastReportSecond = 0;
-var framesThisSecond = 0;
-/** update the frame rate display */
-function updateFrameRate(millis) {
-    var second = Math.trunc(millis / 1000.0);
-    if (second != lastReportSecond) {
-        document.getElementById("frameRate").textContent = framesThisSecond;
-        lastReportSecond = second;
-        framesThisSecond = 1;
-    } else {
-        framesThisSecond++;
-    }
-}
-
-var lastFrameMillis = 0;
-
-/** render one frame, and repeat */
-function render(millis, tickFn) {
-    tickFn(millis);
-    lastFrameMillis = millis;
-    updateFrameRate(millis);
-
-    gl.clearColor(0, 0, 0, 0);
-    gl.clear(gl.COLOR_BUFFER_BIT);
-
-    gl.uniform1f(program.time, millis/1000.0);
-    gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
-    gl.uniform4fv(program.waves, waves);
-
-    gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
-    requestAnimationFrame(function(m) { render(m, tickFn); });
-}
-
 
 /** Load a shader program from a DOM script element 
  *
@@ -217,3 +239,5 @@ function compileShader(gl, id, params) {
       return undefined;
   }
 }
+
+}());
