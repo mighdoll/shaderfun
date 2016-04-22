@@ -67,29 +67,49 @@ function setupEvents(canvas) {
     }
     var markov = randomMarkov(.01, .1, .25);
 
-    canvas.onmousemove = function(e) {
-        var x = e.clientX / window.innerWidth,
-            y = 1 - e.clientY / window.innerHeight,
-            time = lastFrameTime / 1000.0;
+    var mousedown = false,
+        x = .5,
+        y = .5;
 
-        var dropLast = mice.slice(0, mice.length - 4);
-        currentHue += markov();
-        mice = [x,y,time,currentHue].concat(dropLast);
-    };
+    canvas.onmousedown = function(e) {
+        saveMouse(e);
+        mousedown = true;
+    }
+    canvas.onmouseup = function() {
+        mousedown = false;
+    }
+    canvas.onmousemove = saveMouse;
+
+    function saveMouse(e) {
+         x = e.clientX / window.innerWidth;
+         y = 1 - e.clientY / window.innerHeight;
+    }
+
+    /** return a function to be called on every frame */
+    return function(millis) {
+        if (mousedown) {
+                time = lastFrameMillis / 1000.0;
+
+            var dropLast = mice.slice(0, mice.length - 4);
+            currentHue += markov();
+            mice = [x,y,time,currentHue].concat(dropLast);
+        }
+    }
 }
 
-function randomMarkov(maxValue, probability, newState) {
+function randomMarkov(thisState, newStateChance, newState) {
     function randomFromAbs(v) {
       return (Math.random() * v * 2) - v;
     }
 
     return function() {
-      var value = randomFromAbs(maxValue);
-      if (Math.random() <= probability) {
-         value += randomFromAbs(newState);
+      var value;
+      if (Math.random() <= newStateChance) {
+         value = randomFromAbs(newState);
+      } else {
+        value = randomFromAbs(thisState);        
       }
       return value;
-
     };
 }
 
@@ -98,34 +118,42 @@ function start() {
     var canvas = setupCanvas(),
         setup = setupWebGL(canvas);
 
-    setupEvents(canvas);
+    var mouseTick = setupEvents(canvas);
     program = setup.program;
     gl = setup.gl;
-    requestAnimationFrame(render);
+    requestAnimationFrame(function(m) { render(m, mouseTick); });
 }
 
-var lastFrameTime = 0;
+var lastReportSecond = 0;
+var framesThisSecond = 0;
 function updateFrameRate(millis) {
-    var deltaMillis = millis - lastFrameTime,
-        rate = 1000.0 / deltaMillis,
-        roundRate = Math.round(rate * 10) / 10.0;
-    lastFrameTime = millis;
-    document.getElementById("frameRate").textContent = roundRate;
+    var second = Math.trunc(millis / 1000.0);
+    if (second != lastReportSecond) {
+        document.getElementById("frameRate").textContent = framesThisSecond;
+        lastReportSecond = second;
+        framesThisSecond = 1;
+    } else {
+        framesThisSecond++;
+    }
 }
+
+var lastFrameMillis = 0;
 
 /** render one frame, and repeat */
-function render(millis) {
+function render(millis, tickFn) {
+    tickFn(millis);
+    lastFrameMillis = millis;
     updateFrameRate(millis);
 
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.uniform1f(program.time, lastFrameTime/1000.0);
+    gl.uniform1f(program.time, millis/1000.0);
     gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
     gl.uniform4fv(program.mice, mice);
 
     gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
-    requestAnimationFrame(render);
+    requestAnimationFrame(function(m) { render(m, tickFn); });
 }
 
 
