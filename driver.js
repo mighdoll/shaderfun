@@ -1,8 +1,8 @@
 var gl;
 var program;
 
-var miceLength = 50;
-var mice = [];
+var wavesLength = 50;
+var waves = [];
 
 var triangleVertices = [
    -1.0, -1.0,
@@ -16,7 +16,7 @@ var triangleVertices = [
 
 function setupWebGL(canvas) {
     var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
-        shaderSourceParams = {miceLength: miceLength},
+        shaderSourceParams = {wavesLength: wavesLength},
         program = setupShaders(gl, shaderSourceParams);
 
     setupModel(gl, program);
@@ -34,7 +34,7 @@ function setupWebGL(canvas) {
     }
 
     function setupUniforms(gl, program) {
-        program.mice = gl.getUniformLocation(program, "mice");
+        program.waves = gl.getUniformLocation(program, "waves");
         program.time = gl.getUniformLocation(program, "time");
         program.resolution = gl.getUniformLocation(program, "resolution");
     }
@@ -63,10 +63,10 @@ function setupCanvas() {
 
 var currentHue = 0.0;
 function setupEvents(canvas) {
-    for (var i = 0; i < miceLength * 4; i++) {
-        mice[i] = [.5];
+    for (var i = 0; i < wavesLength * 4; i++) {
+        waves[i] = [.5];
     }
-    var markov = randomMarkov(.01, .1, .25);
+    var markov = randomMarkov(.01, .1, .5);
 
     var mousedown = false,
         x = .5,
@@ -91,9 +91,9 @@ function setupEvents(canvas) {
         if (mousedown) {
                 time = lastFrameMillis / 1000.0;
 
-            var dropLast = mice.slice(0, mice.length - 4);
+            var dropLast = waves.slice(0, waves.length - 4);
             currentHue += markov();
-            mice = [x,y,time,currentHue].concat(dropLast);
+            waves = [x,y,time,currentHue].concat(dropLast);
         }
     }
 }
@@ -151,7 +151,7 @@ function render(millis, tickFn) {
 
     gl.uniform1f(program.time, millis/1000.0);
     gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
-    gl.uniform4fv(program.mice, mice);
+    gl.uniform4fv(program.waves, waves);
 
     gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
     requestAnimationFrame(function(m) { render(m, tickFn); });
