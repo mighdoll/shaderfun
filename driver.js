@@ -14,6 +14,8 @@ var triangleVertices = [
    -1.0,  1.0
 ];
 
+/** Setup a webgl canvas to draw with our shaders. 
+ *  returns the compiled shader program and the webgl context */
 function setupWebGL(canvas) {
     var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
         shaderSourceParams = {wavesLength: wavesLength},
@@ -61,16 +63,19 @@ function setupCanvas() {
     return canvas;
 }
 
-var currentHue = 0.0;
+
+/** setup handling of mouse events. Returns a function that should
+ * be called with every frame */
 function setupEvents(canvas) {
+    var currentHue = 0.0, 
+        mousedown = false,
+        mouseX = .5,
+        mouseY = .5,
+        markov = randomMarkov(.01, .1, .5);
+
     for (var i = 0; i < wavesLength * 4; i++) {
         waves[i] = [.5];
     }
-    var markov = randomMarkov(.01, .1, .5);
-
-    var mousedown = false,
-        x = .5,
-        y = .5;
 
     canvas.onmousedown = function(e) {
         saveMouse(e);
@@ -82,22 +87,28 @@ function setupEvents(canvas) {
     canvas.onmousemove = saveMouse;
 
     function saveMouse(e) {
-         x = e.clientX / window.innerWidth;
-         y = 1 - e.clientY / window.innerHeight;
+         mouseX = e.clientX / window.innerWidth;
+         mouseY = 1 - e.clientY / window.innerHeight;
     }
 
-    /** return a function to be called on every frame */
+    /** return a function to be called on every frame.
+     *  it will start a wave if the mouse is down */
     return function(millis) {
         if (mousedown) {
-                time = lastFrameMillis / 1000.0;
+            var time = millis / 1000.0;
 
-            var dropLast = waves.slice(0, waves.length - 4);
             currentHue += markov();
-            waves = [x,y,time,currentHue].concat(dropLast);
+            var dropLast = waves.slice(0, waves.length - 4);
+            waves = [mouseX, mouseY, time, currentHue].concat(dropLast);
         }
     }
 }
 
+/** return a function that returns a random number in one of two ranges. 
+ * @param newStateChance - The probability of using the second range
+ * @param thisState - a random number from the first range will be in [-thisState, thisState)
+ * @param newState - a random number from the second range will be in [-newState, newState)
+ */
 function randomMarkov(thisState, newStateChance, newState) {
     function randomFromAbs(v) {
       return (Math.random() * v * 2) - v;
@@ -127,6 +138,7 @@ function start() {
 
 var lastReportSecond = 0;
 var framesThisSecond = 0;
+/** update the frame rate display */
 function updateFrameRate(millis) {
     var second = Math.trunc(millis / 1000.0);
     if (second != lastReportSecond) {
@@ -158,7 +170,10 @@ function render(millis, tickFn) {
 }
 
 
-// Load a shader program from a DOM script element
+/** Load a shader program from a DOM script element 
+ *
+ * @param params - key:value pairs to apply to any templates in the shader source
+ */
 function compileShader(gl, id, params) {
   var script = document.getElementById(id),
       rawText = collectText(script.firstChild),
