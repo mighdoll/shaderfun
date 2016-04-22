@@ -3,6 +3,7 @@
 window.start = start;
 
 /** waves are passed to the shader
+ *
  * each wave has four elements: x, y, time, hue
  * x,y are the floating point coordinates of the mouse in the range [0,1]
  * time is fractional seconds.
@@ -25,7 +26,8 @@ var triangleVertices = [
 ];
 
 var tickFns = [];
-var freeze = false;
+var frozen = false;
+var lastRenderMillis = 0;
 
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
@@ -72,46 +74,82 @@ function setupCanvas() {
     var canvas = document.getElementById("shader");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-
+    focus(canvas);
     return canvas;
 }
 
+function focus(elem) {
+    elem.setAttribute('tabindex','0');
+    elem.focus();
+}
 
-/** setup handling of mouse events. Returns a function that should
- * be called with every frame */
-function setupEvents(canvas) {
-    var currentHue = 0.0, 
-        mousedown = false,
-        mouseX = .5,
-        mouseY = .5,
-        markov = randomMarkov(.01, .1, .5);
 
-    canvas.onmousedown = function(e) {
-        saveMouse(e);
-        mousedown = true;
+/** setup handling of mouse and keyboard events. */
+function setupEvents(canvas, frameCounter) {
+
+    setupMouse(canvas);
+    setupKeys(canvas);
+
+    function setupKeys(canvas) {
+        var spaceKey = 0x20,
+            rightArrow = 0x27,
+            leftArrow = 0x25,
+            frameMillis = 1000/60;
+        canvas.onkeydown = function(e) {
+            if (e.keyCode == spaceKey) {
+               if (frozen) {
+                  frozen = false;
+               } else {
+                  frozen = lastRenderMillis;
+               }
+            } else if (e.keyCode == rightArrow && frozen) {
+               frozen += frameMillis;
+               frameCounter();
+            } else if (e.keyCode == leftArrow && frozen) {
+               frozen -= frameMillis;
+               frameCounter();
+            } else {
+              console.log(e.keyCode);
+            }
+         }
     }
-    canvas.onmouseup = function() {
-        mousedown = false;
-    }
-    canvas.onmousemove = saveMouse;
 
-    function saveMouse(e) {
-         mouseX = e.clientX / window.innerWidth;
-         mouseY = 1 - e.clientY / window.innerHeight;
-    }
+    function setupMouse(canvas) {
+        var currentHue = 0.0, 
+            mousedown = false,
+            mouseX = .5,
+            mouseY = .5,
+            markov = randomMarkov(.01, .1, .5);
 
-    /** return a function to be called on every frame.
-     *  it will start a wave if the mouse is down */
-    var mouseTick = function(millis) {
-        if (mousedown) {
-            var time = millis / 1000.0;
-
-            currentHue += markov();
-            var dropLast = waves.slice(0, waves.length - 4);
-            waves = [mouseX, mouseY, time, currentHue].concat(dropLast);
+        canvas.onmousedown = function(e) {
+            focus(canvas);
+            saveMouse(e);
+            mousedown = true;
         }
+        canvas.onmouseup = function() {
+            mousedown = false;
+        }
+        canvas.onmousemove = saveMouse;
+
+        function saveMouse(e) {
+             mouseX = e.clientX / window.innerWidth;
+             mouseY = 1 - e.clientY / window.innerHeight;
+        }
+
+        /** return a function to be called on every frame.
+         *  it will start a wave if the mouse is down */
+        var mouseTick = function(millis) {
+            if (mousedown) {
+                var time = millis / 1000.0;
+
+                currentHue += markov();
+                var dropLast = waves.slice(0, waves.length - 4);
+                waves = [mouseX, mouseY, time, currentHue].concat(dropLast);
+            }
+        }
+        tickFns.push(mouseTick);      
     }
-    tickFns.push(mouseTick);
+
 }
 
 function setupWaves() {
@@ -122,41 +160,50 @@ function setupWaves() {
 
 function init() {
     var canvas = setupCanvas(),
-        setup = setupWebGL(canvas);
+        setup = setupWebGL(canvas)
+        frameCounter = frameRateCounter();
 
-    tickFns.push(frameRateCounter());
+    tickFns.push(function() { 
+        if (!frozen) { 
+          frameCounter(); 
+        }
+    });
     setupWaves();
-    setupEvents(canvas);
+    setupEvents(canvas, frameCounter);
     program = setup.program;
     gl = setup.gl;
 }
 
-/* begin webgl animation */
+/** begin webgl animation */
 function start() {
     init();
     requestAnimationFrame(render);
 }
 
-/** return a function that will update the frame rate display */
+/** return a function that's called with every frame rendering 
+  * and will update the frame rate display */
 function frameRateCounter() {
-    var lastReportSecond = 0;
-    var framesThisSecond = 0;
-    return function(millis) {
-      var second = Math.trunc(millis / 1000.0);
-      if (second != lastReportSecond) {
-          document.getElementById("frameRate").textContent = framesThisSecond;
-          lastReportSecond = second;
-          framesThisSecond = 1;
-      } else {
-          framesThisSecond++;
-      }
+    var lastReportSecond = 0,
+        framesThisSecond = 0;
+
+    return function() {
+        var millis = new Date().getTime(),
+            second = Math.trunc(millis / 1000.0);
+        if (second != lastReportSecond) {
+            document.getElementById("frameRate").textContent = framesThisSecond;
+            lastReportSecond = second;
+            framesThisSecond = 1;
+        } else {
+            framesThisSecond++;
+        }
     };
 }
 
 /** render one frame, and repeat */
 function render(millis) {
-    if (freeze) {
-        millis = freeze;
+    lastRenderMillis = millis;
+    if (frozen) {
+        millis = frozen;
     }
     tickFns.forEach(function(fn) { fn(millis);});
 
