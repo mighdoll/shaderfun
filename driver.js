@@ -83,7 +83,6 @@ function focus(elem) {
     elem.focus();
 }
 
-
 /** setup handling of mouse and keyboard events. */
 function setupEvents(canvas, frameCounter) {
     var randomHue = randomMarkov(.05, .1, .5),
@@ -119,7 +118,6 @@ function setupEvents(canvas, frameCounter) {
             }
          }
     }
-
 
     function addWave(mouseXY, millis) {
         var time = millis / 1000.0;
