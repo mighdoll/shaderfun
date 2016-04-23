@@ -1,6 +1,6 @@
 
 ## Building
 
-$ bower install lodash
+`$ bower install lodash`
 
 
