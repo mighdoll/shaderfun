@@ -34,6 +34,7 @@ precision mediump float;
 
 uniform float time;
 uniform vec2 resolution;
+uniform float timeOscillator;
 const int wavesLength = ${wavesLength};
 uniform vec4 waves[wavesLength]; // [x,y,time,hue]
 
@@ -75,40 +76,75 @@ vec3 decayingSine(vec4 wave) {
     return rgb;
 }
 
-float receding(float startTime, float dist) {
-    float cycle = timeCycle(startTime + time, 5.0);
-    float scale = .5;
-    float offset = 1.0;
-    float value;
-
-    float f = abs(dist - cycle);
-    if (f < .05) {
-        value = 1.0 - f*5.0;
-    } else {
-        value = 0.0;
-    }
-
+float sawtooth2(float width, float t) {
+    float phase = PI * width * t;
+    float value = sin(phase);
+    value += sin(3.0 * phase) / 3.0;
+    value += sin(5.0 * phase) / 5.0;
+    value += sin(7.0 * phase) / 7.0;
     return value;
 }
 
-vec3 squareWave(vec4 wave) {
-    float hue = wave.w;
-    float startTime = wave.z;
-    vec2 d = abs(wave.xy - gl_FragCoord.xy / resolution.xy);    // vector to our pixel
-    float distance = length(d);                                 // distance to our pixel
 
-    float value = 0.0;
+float notch2(float width, float t) {
+    float base = (1.3 * t / width) - 0.4;
+    float value = 1.0 - pow(base, 6.0);
+    return value;
+}
 
-    float t = .5*(1.0+sin(time - startTime));  // sine oscillator zero to one and back in 
-    float xDist = abs(d.x - t);
-    float yDist = abs(d.y - t);
-    if (xDist < .02 && abs(d.y) < t) {
-        value = .7;
-    } else if (yDist < .02 && abs(d.x) < t) {
-        value = .7;
+float notch(float width, float x) {
+    if (x <= width) {
+        return 1.0;
+    } else {
+        return 0.0;
     }
+}
 
+float distanceFromRect(vec2 pos, vec2 corner) {
+    // consider the upper right quadrant of the rect. 
+    // (other quadrants are symmetrical)
+    vec2 aPos = abs(pos);
+    vec2 aCorner = abs(corner);
+    vec2 toCorner = abs(aPos - aCorner);
+
+    if (aPos.x > aCorner.x && aPos.y > aCorner.y) {
+        return length(toCorner);             // point outside in corner
+    } else if (aPos.x > aCorner.x) {
+        return toCorner.x;                   // point outside right
+    } else if (aPos.y > aCorner.y) {
+        return toCorner.y;                   // point outside above
+    } else {
+        return min(toCorner.x, toCorner.y);  // point inside
+    }
+}
+
+/** quarter sine curve, ramps smoothly from zero to one as input
+    goes linearly from 0 to 1. the quarter sine ouput repeats for every integer 
+    rise in the input. */
+float quarterSine(float x) {
+    x = mod(x, 1.0);
+    x *= PI;
+    x -= PI / 2.0;
+    float y = .5*(1.0+sin(x));  
+    return y;
+}
+
+vec3 spinningSquare(vec4 wave) {
+    float hue = wave.w;
     float saturation = .7;
+    float startTime = wave.z;
+    vec2 center = wave.xy;
+    vec2 d = abs(gl_FragCoord.xy / resolution.xy - center);    // vector to our pixel
+    float distance = length(d);                                // distance to our pixel
+
+
+    float t = quarterSine(time - startTime);
+    float maxValue = pow(1.0 - t, 5.0); // fade value as we go further from center
+
+    float dist = distanceFromRect(d, vec2(t,t));
+    float attenuation = 0.3;
+    float fuzzySquare = attenuation * exp(-100.0*dist*dist);
+    float value = maxValue * fuzzySquare;
     vec3 rgb = hsv2rgb(vec3(hue, saturation, value));
     return rgb;
 }
@@ -137,8 +173,11 @@ void main( void ) {
 <body onload="start();">
     <div class="stats" style="position:fixed; left:10; top: 10;">
         <table>
-            <tr> <td> Frame rate:</td> 
+            <tr> <td> Frame Rate:</td> 
                  <td> <span id="frameRate"> 0</span></td>
+            </tr>
+            <tr> <td> Frame Time:</td> 
+                 <td> <span id="frameTime"> 0</span></td>
             </tr>
         </table>
     </div>

@@ -6,7 +6,7 @@ window.start = start;
  *
  * each wave has four elements: x, y, time, hue
  * x,y are the floating point coordinates of the mouse in the range [0,1]
- * time is fractional seconds. -1 time means the wave is disabled.
+ * time is fractional seconds. if time = -1.0 the wave is disabled.
  * hue is in the range [0,1]
  */
 var wavesLength = 50;
@@ -95,6 +95,7 @@ function setupEvents(canvas, frameCounter) {
             leftArrow = 0x25,
             downArrow = 0x28,
             cKey = 0x43,
+            tKey = 0x54,
             frameMillis = 1000/60;
         canvas.onkeydown = function(e) {
             if (e.keyCode == spaceKey) {
@@ -110,9 +111,11 @@ function setupEvents(canvas, frameCounter) {
                frozen -= frameMillis;
                frameCounter();
             } else if (e.keyCode == downArrow) {
-               addWave(mouse.mouseXY(), lastRenderMillis);
+               addWave(mouse.mouseXY(), frozen ? frozen : lastRenderMillis);
             } else if (e.keyCode == cKey) {
                clearWaves();
+            } else if (e.keyCode == tKey) {
+               oneTestWave();
             } else {
               console.log(e.keyCode);
             }
@@ -228,13 +231,15 @@ function initWaves() {
     }
 }
 
-/** Setup one fixed wave. Useful for debugging */
-function oneWave() {
+/** Setup one fixed wave in frozen mode. Useful for debugging */
+function oneTestWave() {
    clearWaves();
+   frozen = 1;
+   lastRenderMillis = 1;
    var i = 0;
    waves[i++] = .5;
    waves[i++] = .5;
-   waves[i++] = 1.0;
+   waves[i++] = 1 / 1000.0;
    waves[i++] = .65;
 }
 
@@ -250,7 +255,6 @@ function init() {
         }
     });
     initWaves();
-    // oneWave();
     setupEvents(canvas, frameCounter);
     program = setup.program;
     gl = setup.gl;
@@ -278,6 +282,10 @@ function frameRateCounter() {
         } else {
             framesThisSecond++;
         }
+
+        var frameTime = frozen ? frozen : lastRenderMillis,
+            roundTime = Math.trunc(frameTime*100)/100;
+        document.getElementById("frameTime").textContent = roundTime;
     };
 }
 
@@ -315,7 +323,8 @@ function compileShader(gl, id, params) {
   gl.compileShader(shader);
 
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.log("An error occurred compiling the shader: " + gl.getShaderInfoLog(shader));
+    console.error("An error occurred compiling the shader: " + gl.getShaderInfoLog(shader));
+    debugger;
     return null;
   }
 
