@@ -6,7 +6,7 @@ window.start = start;
  *
  * each wave has four elements: x, y, time, hue
  * x,y are the floating point coordinates of the mouse in the range [0,1]
- * time is fractional seconds.
+ * time is fractional seconds. -1 time means the wave is disabled.
  * hue is in the range [0,1]
  */
 var wavesLength = 50;
@@ -86,7 +86,7 @@ function focus(elem) {
 
 /** setup handling of mouse and keyboard events. */
 function setupEvents(canvas, frameCounter) {
-    var randomHue = randomMarkov01(.05, .1, .5),
+    var randomHue = randomMarkov(.05, .1, .5),
         mouse = setupMouse(canvas);
     setupKeys(canvas, mouse);
 
@@ -161,6 +161,7 @@ function setupEvents(canvas, frameCounter) {
 
 }
 
+/* disable all waves */
 function clearWaves() {
     for (var i = 0; i < wavesLength * 4;) {
         waves[i++] = [0.5];
@@ -170,9 +171,16 @@ function clearWaves() {
     }
 }
 
-/** return a random number in the range [0, 1] */
-function randomMarkov01(thisState, newStateChance, newState) {
-    var markov = randomMarkovOffset.apply(this, arguments);
+/** return a function that returns a random number in the range [0, 1].
+ * The generated random number tends to stay near the previous random number, but occasionally
+ * jumps to a neighborhood in [0,1].
+ * 
+ * @param thisState - current state random numbers will be within +/- thisState of the previous number
+ * @param newStateChance - The probability of jumping to a new state
+ * @param newState - new state random numbers will be within +/- newState of the previous number
+ */
+function randomMarkov(thisState, newStateChance, newState) {
+    var markov = randomOffset();
     var value = Math.random();
 
     return function() {
@@ -188,19 +196,48 @@ function randomMarkov01(thisState, newStateChance, newState) {
 
         return value;
     }
+
+    /** return a function that returns a random number in one of two ranges. */
+    function randomOffset() {
+        function randomFromAbs(v) {
+          return (Math.random() * v * 2) - v;
+        }
+
+        return function() {
+          var value;
+          if (Math.random() <= newStateChance) {
+             value = randomFromAbs(newState);
+          } else {
+             value = randomFromAbs(thisState);        
+          }
+          return value;
+        };
+    }
+
 }
 
+/** initialize a pretty random pattern of starting waves */
 function initWaves() {
-    var randomX = randomMarkov01(.1, .1, .4),
-        randomY = randomMarkov01(.1, .1, .4),
-        randomTime = randomMarkov01(.5, 0),
-        randomHue = randomMarkov01(.05, .1, .5);
+    var randomX = randomMarkov(.1, .1, .4),
+        randomY = randomMarkov(.1, .1, .4),
+        randomTime = randomMarkov(.5, 0),
+        randomHue = randomMarkov(.05, .1, .5);
     for (var i = 0; i < wavesLength * 4;) {
         waves[i++] = [randomX()];
         waves[i++] = [randomY()];
         waves[i++] = [randomTime()];
         waves[i++] = [randomHue()];
     }
+}
+
+/** Setup one fixed wave. Useful for debugging */
+function oneWave() {
+   clearWaves();
+   var i = 0;
+   waves[i++] = .5;
+   waves[i++] = .5;
+   waves[i++] = 1.0;
+   waves[i++] = .65;
 }
 
 
@@ -215,6 +252,7 @@ function init() {
         }
     });
     initWaves();
+    // oneWave();
     setupEvents(canvas, frameCounter);
     program = setup.program;
     gl = setup.gl;
@@ -262,27 +300,6 @@ function render(millis) {
 
     gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
     requestAnimationFrame(render);
-}
-
-/** return a function that returns a random number in one of two ranges. 
- * @param newStateChance - The probability of using the second range
- * @param thisState - a random number from the first range will be in [-thisState, thisState)
- * @param newState - a random number from the second range will be in [-newState, newState)
- */
-function randomMarkovOffset(thisState, newStateChance, newState) {
-    function randomFromAbs(v) {
-      return (Math.random() * v * 2) - v;
-    }
-
-    return function() {
-      var value;
-      if (Math.random() <= newStateChance) {
-         value = randomFromAbs(newState);
-      } else {
-        value = randomFromAbs(thisState);        
-      }
-      return value;
-    };
 }
 
 /** Load a shader program from a DOM script element 

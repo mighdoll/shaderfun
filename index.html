@@ -36,10 +36,9 @@ uniform vec4 waves[wavesLength]; // [x,y,time,hue]
 const float PI = 3.1415926535897932384626433832795;
 const float PI2 = 2.0 * PI;
 
-/** cycle smoothly from 0 to 1 over the specified period in seconds */
-float timeCycle(void) {
-    const float period = 3.0;
-    float smooth = .5 * (1.0 + sin(time * PI2/period));
+/** cycle smoothly from 0 to 1 and back over the specified period in seconds */
+float timeCycle(float offset, float period) {
+    float smooth = .5 * (1.0 + sin((time + offset) * PI2/period));
     return smooth;
 }
 
@@ -51,17 +50,60 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 /** color via sin wave tamped by decaying exponential */
-vec3 attenuatedWaveColor(float distance, float startTime, float hue) {
+vec3 decayingSine(vec4 wave) {
+    vec2 fromCenter = abs(wave.xy - gl_FragCoord.xy / resolution.xy);
+    float distance = length(fromCenter);
+    float hue = wave.w;
+    float startTime = wave.z;
+
     float decayRate = -4.0;
     float scale = .5;
     float offset = 1.0;
     float stretch = 40.0 + distance;
-    float cycle = (startTime + time) * 5.0;
+    float cycle = (time - startTime) * 5.0;
 
     float decay = exp(decayRate * distance);
-    float wiggle = scale * (offset + cos(distance * stretch - cycle)); 
+    float wiggle = scale * (offset + sin(distance * stretch - cycle)); 
     float value = wiggle * decay;
     value /= float(wavesLength / 8);
+    float saturation = .7;
+    vec3 rgb = hsv2rgb(vec3(hue, saturation, value));
+    return rgb;
+}
+
+float receding(float startTime, float dist) {
+    float cycle = timeCycle(startTime + time, 5.0);
+    float scale = .5;
+    float offset = 1.0;
+    float value;
+
+    float f = abs(dist - cycle);
+    if (f < .05) {
+        value = 1.0 - f*5.0;
+    } else {
+        value = 0.0;
+    }
+
+    return value;
+}
+
+vec3 squareWave(vec4 wave) {
+    float hue = wave.w;
+    float startTime = wave.z;
+    vec2 d = abs(wave.xy - gl_FragCoord.xy / resolution.xy);    // vector to our pixel
+    float distance = length(d);                                 // distance to our pixel
+
+    float value = 0.0;
+
+    float t = .5*(1.0+sin(time - startTime));  // sine oscillator zero to one and back in 
+    float xDist = abs(d.x - t);
+    float yDist = abs(d.y - t);
+    if (xDist < .02 && abs(d.y) < t) {
+        value = .7;
+    } else if (yDist < .02 && abs(d.x) < t) {
+        value = .7;
+    }
+
     float saturation = .7;
     vec3 rgb = hsv2rgb(vec3(hue, saturation, value));
     return rgb;
@@ -70,9 +112,7 @@ vec3 attenuatedWaveColor(float distance, float startTime, float hue) {
 
 /** color from one wave */
 vec3 colorContrib(vec4 wave) {
-    vec2 fromCenter = abs(wave.xy - gl_FragCoord.xy / resolution.xy);
-    float distance = length(fromCenter);
-    return attenuatedWaveColor(distance, wave.z, wave.w);
+    return decayingSine(wave);
 }
 
 /** accumulate a color from all the waves for this pixel. */
