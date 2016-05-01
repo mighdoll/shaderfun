@@ -71,7 +71,7 @@ vec3 decayingSine(vec4 wave) {
     float value = wiggle * decay;
     value /= float(wavesLength / 8);
     float saturation = .7;
-    vec3 rgb = hsv2rgb(vec3(hue, saturation, value));
+    vec3 rgb = hsv2rgb(vec3(hue+time/20.0, saturation, value));
     return rgb;
 }
 
