@@ -2,6 +2,7 @@
 <head>
     <title>WebGl Thing</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.11.2/lodash.js" type="text/javascript"></script>
+    <script type="text/javascript" src="dat.gui.min.js"></script>
     <script src="driver.js" type="text/javascript"></script>
     <style>
         * {
@@ -33,6 +34,7 @@ precision mediump float;
 
 
 uniform float time;
+uniform int mode;
 uniform vec2 resolution;
 const int wavesLength = ${wavesLength};
 uniform vec4 waves[wavesLength]; // [x,y,time,hue]
