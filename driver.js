@@ -2,6 +2,7 @@
 
 window.start = start;
 
+
 /** waves are passed to the shader
  *
  * each wave has four elements: x, y, time, hue
@@ -28,7 +29,13 @@ var triangleVertices = [
 var tickFns = [];
 var frozen = false;
 var lastRenderMillis = 0;
-
+var time=0.0;
+var Control = function() {
+  this.speed = 1.0;
+  // Define render logic ...
+};
+var gui = new dat.GUI();
+gui.add(text, 'speed', -5, 5);
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
 function setupWebGL(canvas) {
@@ -283,6 +290,7 @@ function frameRateCounter() {
 
 /** render one frame, and repeat */
 function render(millis) {
+   time=time+(millis)-lastRenderMillis;
     lastRenderMillis = millis;
     if (frozen) {
         millis = frozen;
@@ -292,7 +300,7 @@ function render(millis) {
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.uniform1f(program.time, millis/1000.0);
+    gl.uniform1f(program.time, time/1000.0);
     gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
     gl.uniform4fv(program.waves, waves);
 
