@@ -167,7 +167,7 @@ function setupEvents(canvas, frameCounter) {
         canvas.onmousemove = saveMouse;
 
         function saveMouse(e) {
-             mouseXY = [e.clientX / window.innerWidth,
+             mouseXY = [e.clientX / window.innerHeight,
                         1 - e.clientY / window.innerHeight];
         }
 
