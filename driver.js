@@ -34,6 +34,7 @@ var Control = function() {
   this.speed = 1.0;
   // Define render logic ...
 };
+var control=new Control();
 var gui;
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
@@ -265,7 +266,7 @@ function init() {
 /** begin webgl animation */
 function start() {
    var gui = new dat.GUI();
-gui.add(text, 'speed', -5, 5);
+gui.add(control, 'speed', -5, 5);
     init();
     requestAnimationFrame(render);
 }
@@ -291,7 +292,7 @@ function frameRateCounter() {
 
 /** render one frame, and repeat */
 function render(millis) {
-   time=time+(millis)-lastRenderMillis;
+   time=time+(millis-lastRenderMillis)*control.speed;
     lastRenderMillis = millis;
     if (frozen) {
         millis = frozen;
