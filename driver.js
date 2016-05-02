@@ -34,8 +34,7 @@ var Control = function() {
   this.speed = 1.0;
   // Define render logic ...
 };
-var gui = new dat.GUI();
-gui.add(text, 'speed', -5, 5);
+var gui;
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
 function setupWebGL(canvas) {
@@ -265,6 +264,8 @@ function init() {
 
 /** begin webgl animation */
 function start() {
+   var gui = new dat.GUI();
+gui.add(text, 'speed', -5, 5);
     init();
     requestAnimationFrame(render);
 }
