@@ -38,6 +38,20 @@ var control=new Control();
 var gui;
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
+ function resize(canvas) {
+  // Lookup the size the browser is displaying the canvas.
+  var displayWidth  = canvas.clientWidth;
+  var displayHeight = canvas.clientHeight;
+ 
+  // Check if the canvas is not the same size.
+  if (canvas.width  != displayWidth ||
+      canvas.height != displayHeight) {
+ 
+    // Make the canvas the same size
+    canvas.width  = displayWidth;
+    canvas.height = displayHeight;
+  }
+}
 function setupWebGL(canvas) {
     var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
         shaderSourceParams = {wavesLength: wavesLength},
@@ -292,6 +306,7 @@ function frameRateCounter() {
 
 /** render one frame, and repeat */
 function render(millis) {
+   resize(document.getElementById("shader"));
    time=time+(millis-lastRenderMillis)*control.speed;
     lastRenderMillis = millis;
     if (frozen) {
