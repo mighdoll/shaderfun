@@ -57,7 +57,7 @@ vec3 hsv2rgb(vec3 c) {
 
 /** color via sin wave tamped by decaying exponential */
 vec3 decayingSine(vec4 wave) {
-    vec2 fromCenter = abs(wave.xy - gl_FragCoord.xy / resolution.xy);
+    vec2 fromCenter = abs(wave.xy - gl_FragCoord.xy / resolution.yy);
     float distance = length(fromCenter);
     float hue = wave.w;
     float startTime = wave.z;
@@ -96,7 +96,7 @@ float receding(float startTime, float dist) {
 vec3 squareWave(vec4 wave) {
     float hue = wave.w;
     float startTime = wave.z;
-    vec2 d = abs(wave.xy - gl_FragCoord.xy / resolution.xy);    // vector to our pixel
+    vec2 d = abs(wave.xy - gl_FragCoord.xy / resolution.yy);    // vector to our pixel
     float distance = length(d);                                 // distance to our pixel
 
     float value = 0.0;
