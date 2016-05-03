@@ -1,3 +1,5 @@
+var control;
+var gui;
 (function() {
 
 window.start = start;
@@ -32,10 +34,13 @@ var lastRenderMillis = 0;
 var time=0.0;
 var Control = function() {
   this.speed = 1.0;
+  this.mode = 1;
+  this.wave = 1;
+  return this;
   // Define render logic ...
 };
-var control=new Control();
-var gui;
+control=new Control();
+
 /** Setup a webgl canvas to draw with our shaders. 
  *  returns the compiled shader program and the webgl context */
 function resize(gl) {
@@ -81,6 +86,8 @@ function setupWebGL(canvas) {
         program.waves = gl.getUniformLocation(program, "waves");
         program.time = gl.getUniformLocation(program, "time");
         program.resolution = gl.getUniformLocation(program, "resolution");
+         program.waveType = gl.getUniformLocation(program, "waveType");
+         program.mode = gl.getUniformLocation(program, "mode");
     }
 
     function setupShaders(gl, params) {
@@ -287,6 +294,8 @@ function init() {
 function start() {
    var gui = new dat.GUI();
 gui.add(control, 'speed', -5, 5);
+gui.add(control, 'mode', { Normal: 1, '3D':2 } );
+gui.add(control, 'wave', { Sine: 1, Square:2,Peak:3 } );
     init();
     requestAnimationFrame(render);
 }
@@ -324,6 +333,9 @@ function render(millis) {
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     gl.uniform1f(program.time, time/1000.0);
+    gl.uniform1i(program.waveType, control.wave);
+    gl.uniform1i(program.mode, control.mode);
+    //gl.uniform1i(program.mode, control.mode);
     gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
     gl.uniform4fv(program.waves, waves);
 
