@@ -71,7 +71,7 @@ vec3 decayingSine(vec4 wave,vec2 pos) {
     float cycle = (time - startTime) * 5.0;
 
     float decay = exp(decayRate * distance);
-    float wiggle = scale * (offset + sin(distance * stretch - cycle)); 
+    float wiggle = scale * (offset + sin(distance * stretch - cycle));
     float value = wiggle * decay;
     value /= float(wavesLength / 8);
     float saturation = .7;
@@ -91,7 +91,7 @@ vec3 decayingSquare(vec4 wave,vec2 pos) {
     float cycle = (time - startTime) * 5.0;
 
     float decay = exp(decayRate * distance);
-    float wiggle = scale * (offset + (floor(sin(distance * stretch - cycle)*0.5+1.0)-0.5)*2.0); 
+    float wiggle = scale * (offset + (floor(sin(distance * stretch - cycle)*0.5+1.0)-0.5)*2.0);
     float value = wiggle * decay;
     value /= float(wavesLength / 8);
     float saturation = .7;
@@ -123,7 +123,7 @@ vec3 decayingPeak(vec4 wave,vec2 pos) {
     float cycle = (time - startTime) * 5.0;
 
     float decay = exp(decayRate * distance);
-    float wiggle = scale * (offset + peak(distance * stretch - cycle)); 
+    float wiggle = scale * (offset + peak(distance * stretch - cycle));
     float value = wiggle * decay;
     value /= float(wavesLength / 8);
     float saturation = .7;
@@ -156,7 +156,7 @@ float notch(float width, float x) {
 }
 
 float distanceFromRect(vec2 pos, vec2 corner) {
-    // consider the upper right quadrant of the rect. 
+    // consider the upper right quadrant of the rect.
     // (other quadrants are symmetrical)
     vec2 aPos = abs(pos);
     vec2 aCorner = abs(corner);
@@ -174,13 +174,13 @@ float distanceFromRect(vec2 pos, vec2 corner) {
 }
 
 /** quarter sine curve, ramps smoothly from zero to one as input
-    goes linearly from 0 to 1. the quarter sine ouput repeats for every integer 
+    goes linearly from 0 to 1. the quarter sine ouput repeats for every integer
     rise in the input. */
 float quarterSine(float x) {
     x = mod(x, 1.0);
     x *= PI;
     x -= PI / 2.0;
-    float y = .5*(1.0+sin(x));  
+    float y = .5*(1.0+sin(x));
     return y;
 }
 
@@ -222,13 +222,13 @@ void main( void ) {
             }
     for (int i =0; i < wavesLength; i++) {
         if (waves[i].z > 0.0) {
-            
+
             if(mode==2){
                 color += vec3(length(colorContrib(waves[i],gl_FragCoord.xy)));
                 color -= vec3(length(colorContrib(waves[i],gl_FragCoord.xy+vec2(10.0)/resolution.xy)));
             }else{
                 color += colorContrib(waves[i],gl_FragCoord.xy);
-                
+
             }
         }
     }
