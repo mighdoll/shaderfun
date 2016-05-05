@@ -116,7 +116,7 @@ function focus(elem) {
 }
 
 /** setup handling of mouse and keyboard events. */
-function setupEvents(canvas, frameCounter) {
+function setupEvents(canvas) {
     var randomHue = randomMarkov(.05, .1, .5),
         mouse = setupMouse(canvas);
     setupKeys(canvas, mouse);
@@ -138,10 +138,8 @@ function setupEvents(canvas, frameCounter) {
                }
             } else if (e.keyCode == rightArrow && frozen) {
                frozen += frameMillis;
-               frameCounter();
             } else if (e.keyCode == leftArrow && frozen) {
                frozen -= frameMillis;
-               frameCounter();
             } else if (e.keyCode == downArrow) {
                addWave(mouse.mouseXY(), frozen ? frozen : lastRenderMillis);
             } else if (e.keyCode == cKey) {
@@ -149,7 +147,7 @@ function setupEvents(canvas, frameCounter) {
             } else if (e.keyCode == tKey) {
                oneTestWave();
             } else {
-              console.log(e.keyCode);
+              // console.log(e.keyCode);
             }
          }
     }
@@ -278,16 +276,10 @@ function oneTestWave() {
 
 function init() {
     var canvas = setupCanvas(),
-        setup = setupWebGL(canvas)
-        frameCounter = frameRateCounter();
+        setup = setupWebGL(canvas);
 
-    tickFns.push(function() { 
-        if (!frozen) { 
-          frameCounter(); 
-        }
-    });
     initWaves();
-    setupEvents(canvas, frameCounter);
+    setupEvents(canvas);
     program = setup.program;
     gl = setup.gl;
 }
@@ -298,35 +290,17 @@ function start() {
     gui.add(control, 'speed', -5, 5);
     gui.add(control, 'mode', { Normal: 1, '3D':2 } );
     gui.add(control, 'wave', { Sine: 1, Square:2,Peak:3 } );
+    stats = new Stats();
+    stats.showPanel( 0 );
+    document.body.appendChild( stats.dom );
     init();
     requestAnimationFrame(render);
 }
 
-/** return a function that's called with every frame rendering 
-  * and will update the frame rate display */
-function frameRateCounter() {
-    var lastReportSecond = 0,
-        framesThisSecond = 0;
-
-    return function() {
-        var millis = new Date().getTime(),
-            second = Math.trunc(millis / 1000.0);
-        if (second != lastReportSecond) {
-            document.getElementById("frameRate").textContent = framesThisSecond;
-            lastReportSecond = second;
-            framesThisSecond = 1;
-        } else {
-            framesThisSecond++;
-        }
-
-        var frameTime = frozen ? frozen : lastRenderMillis,
-            roundTime = Math.trunc(frameTime*100)/100;
-        document.getElementById("frameTime").textContent = roundTime;
-    };
-}
 
 /** render one frame, and repeat */
 function render(millis) {
+    stats.begin();
     resize(gl);
     lastRenderMillis = millis;
     if (frozen) {
@@ -345,6 +319,7 @@ function render(millis) {
     gl.uniform4fv(program.waves, waves);
 
     gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
+    stats.end();
     requestAnimationFrame(render);
 }
 
