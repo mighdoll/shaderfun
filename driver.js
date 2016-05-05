@@ -1,9 +1,6 @@
-var control;
-var gui;
 (function() {
 
 window.start = start;
-
 
 /** waves are passed to the shader
  *
@@ -14,7 +11,6 @@ window.start = start;
  */
 var wavesLength = 50;
 var waves = []; 
-
 var gl;
 var program;
 
@@ -38,10 +34,10 @@ var Control = function() {
   return this;
   // Define render logic ...
 };
-control=new Control();
 
-/** Setup a webgl canvas to draw with our shaders. 
- *  returns the compiled shader program and the webgl context */
+var control = new Control();
+
+// TODO DRY with setupCanvas
 function resize(gl) {
   // Get the canvas from the WebGL context
   var canvas = gl.canvas;
@@ -62,6 +58,9 @@ function resize(gl) {
     gl.viewport(0, 0, canvas.width, canvas.height);
   }
 }
+
+/** Setup a webgl canvas to draw with our shaders. 
+ *  returns the compiled shader program and the webgl context */
 function setupWebGL(canvas) {
     var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
         shaderSourceParams = {wavesLength: wavesLength},
@@ -328,7 +327,7 @@ function frameRateCounter() {
 
 /** render one frame, and repeat */
 function render(millis) {
-   resize(gl);
+    resize(gl);
     lastRenderMillis = millis;
     if (frozen) {
         millis = frozen;
