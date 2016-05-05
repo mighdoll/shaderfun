@@ -9,8 +9,9 @@ window.start = start;
  * time is fractional seconds. if time = -1.0 the wave is disabled.
  * hue is in the range [0,1]
  */
-var wavesLength = 50;
 var waves = []; 
+var wavesLength = 50;   // length of the waves array
+
 var gl;
 var program;
 
@@ -24,18 +25,41 @@ var triangleVertices = [
    -1.0,  1.0
 ];
 
-var tickFns = [];
-var frozen = false;
-var lastRenderMillis = 0;
-var Control = function() {
-  this.speed = 1.0;
-  this.mode = 1;
-  this.wave = 1;
-  return this;
-  // Define render logic ...
-};
+var tickFns = [];           // arbitrary functions called on every frame
+var frozen = false;         // set to millis to freeze animation at that frame
+var lastRenderMillis = 0;   // true millis of previous frame, ignoring frozen-ness
+var control;                // control panel state
 
-var control = new Control();
+/**  setup control panel */
+function controlPanel(randomizeFn, freezeFn) {
+  var gui = new dat.GUI(),
+      control = {
+          speed: 1.0,
+          mode: 1,
+          wave: 1,
+          randomize: randomizeFn,
+          freeze: toFreeze,
+          unfreeze: toFreeze
+      };
+  gui.add(control, 'speed', -5, 5);
+  gui.add(control, 'mode', { Normal: 1, '3D':2 } );
+  gui.add(control, 'wave', { Sine: 1, Square:2,Peak:3 } );
+  gui.add(control, 'randomize');
+  var freezeControl = gui.add(control, 'freeze');
+
+  return control;
+
+  function toFreeze() {
+      freezeFn();
+      freezeControl.remove();
+
+      if (frozen) {
+          freezeControl = gui.add(control, 'unfreeze');
+      } else {
+          freezeControl = gui.add(control, 'freeze');
+      }
+  }
+}
 
 // TODO DRY with setupCanvas
 function resize(gl) {
@@ -84,8 +108,8 @@ function setupWebGL(canvas) {
         program.waves = gl.getUniformLocation(program, "waves");
         program.time = gl.getUniformLocation(program, "time");
         program.resolution = gl.getUniformLocation(program, "resolution");
-         program.waveType = gl.getUniformLocation(program, "waveType");
-         program.mode = gl.getUniformLocation(program, "mode");
+        program.waveType = gl.getUniformLocation(program, "waveType");
+        program.mode = gl.getUniformLocation(program, "mode");
     }
 
     function setupShaders(gl, params) {
@@ -115,6 +139,15 @@ function focus(elem) {
     elem.focus();
 }
 
+/** freeze animation, or unfreeze if already frozen */
+function toggleFreeze() {
+   if (frozen) {
+      frozen = false;
+   } else {
+      frozen = lastRenderMillis;
+   }
+}
+
 /** setup handling of mouse and keyboard events. */
 function setupEvents(canvas) {
     var randomHue = randomMarkov(.05, .1, .5),
@@ -131,11 +164,7 @@ function setupEvents(canvas) {
             frameMillis = 1000/60;
         canvas.onkeydown = function(e) {
             if (e.keyCode == spaceKey) {
-               if (frozen) {
-                  frozen = false;
-               } else {
-                  frozen = lastRenderMillis;
-               }
+              toggleFreeze();
             } else if (e.keyCode == rightArrow && frozen) {
                frozen += frameMillis;
             } else if (e.keyCode == leftArrow && frozen) {
@@ -192,16 +221,6 @@ function setupEvents(canvas) {
 
 }
 
-/* disable all waves */
-function clearWaves() {
-    for (var i = 0; i < wavesLength * 4;) {
-        waves[i++] = [0.5];
-        waves[i++] = [0.5];
-        waves[i++] = [-1.0];
-        waves[i++] = [0.0];
-    }
-}
-
 /** return a function that returns a random number in the range [0, 1].
  * The generated random number tends to stay near the previous random number, but occasionally
  * jumps to a neighborhood in [0,1].
@@ -247,8 +266,19 @@ function randomMarkov(thisState, newStateChance, newState) {
 
 }
 
+
+/* disable all waves */
+function clearWaves() {
+    for (var i = 0; i < wavesLength * 4;) {
+        waves[i++] = [0.5];
+        waves[i++] = [0.5];
+        waves[i++] = [-1.0];
+        waves[i++] = [0.0];
+    }
+}
+
 /** initialize a pretty random pattern of starting waves */
-function initWaves() {
+function randomWaves() {
     var randomX = randomMarkov(.1, .1, .4),
         randomY = randomMarkov(.1, .1, .4),
         randomTime = randomMarkov(.5, 0),
@@ -273,23 +303,19 @@ function oneTestWave() {
    waves[i++] = .65;
 }
 
-
 function init() {
     var canvas = setupCanvas(),
         setup = setupWebGL(canvas);
 
-    initWaves();
+    randomWaves();
     setupEvents(canvas);
+    control = controlPanel(randomWaves, toggleFreeze);
     program = setup.program;
     gl = setup.gl;
 }
 
 /** begin webgl animation */
 function start() {
-    var gui = new dat.GUI();
-    gui.add(control, 'speed', -5, 5);
-    gui.add(control, 'mode', { Normal: 1, '3D':2 } );
-    gui.add(control, 'wave', { Sine: 1, Square:2,Peak:3 } );
     stats = new Stats();
     stats.showPanel( 0 );
     document.body.appendChild( stats.dom );
@@ -301,7 +327,7 @@ function start() {
 /** render one frame, and repeat */
 function render(millis) {
     stats.begin();
-    resize(gl);
+    resize(gl); // TODO call this on resize events, not every frame
     lastRenderMillis = millis;
     if (frozen) {
         millis = frozen;
@@ -314,7 +340,6 @@ function render(millis) {
     gl.uniform1f(program.time, millis/1000.0);
     gl.uniform1i(program.waveType, control.wave);
     gl.uniform1i(program.mode, control.mode);
-    //gl.uniform1i(program.mode, control.mode);
     gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
     gl.uniform4fv(program.waves, waves);
 
