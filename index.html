@@ -34,8 +34,15 @@ precision mediump float;
 #endif
 
 uniform int waveType;
-uniform float time;
+const int decayingSineWave = ${decayingSineWave};
+const int decayingSquareWave = ${decayingSquareWave};
+const int peakWave = ${peakWave};
+
 uniform int mode;
+const int modeNormal = ${modeNormal};
+const int mode3d = ${mode3d};
+
+uniform float time;
 uniform vec2 resolution;
 uniform float timeOscillator;
 const int wavesLength = ${wavesLength};
@@ -98,6 +105,7 @@ vec3 decayingSquare(vec4 wave,vec2 pos) {
     vec3 rgb = hsv2rgb(vec3(hue+time/20.0, saturation, value));
     return rgb;
 }
+
 float peak(float x){
     return abs(2.0-mod(x/PI*2.0,4.0))-1.0;
 }
@@ -172,38 +180,36 @@ vec3 spinningSquare(vec4 wave) {
 
 
 /** color from one wave */
-vec3 colorContrib(vec4 wave,vec2 pos) {
-    if(waveType==2){
-        return decayingSquare(wave,pos);
+vec3 colorContrib(vec4 wave, vec2 pos) {
+    if (waveType == decayingSquareWave){
+        return decayingSquare(wave, pos);
+    } else if (waveType == peakWave){
+        return decayingPeak(wave, pos);
     }
-    if(waveType==3){
-        return decayingPeak(wave,pos);
-    }
-    return decayingSine(wave,pos);
+    return decayingSine(wave, pos);
 }
 
 /** accumulate a color from all the waves for this pixel. */
 void main( void ) {
     vec3 color = vec3(0.0, 0.0, 0.0);
-    if(mode==2){
-                color=vec3(0.003);
-            }
+    if (mode == mode3d) {
+        color = vec3(0.003);
+    }
     for (int i =0; i < wavesLength; i++) {
         if (waves[i].z > 0.0) {
-
-            if(mode==2){
+            if (mode == mode3d) {
                 color += vec3(length(colorContrib(waves[i],gl_FragCoord.xy)));
                 color -= vec3(length(colorContrib(waves[i],gl_FragCoord.xy+vec2(10.0)/resolution.xy)));
-            }else{
+            } else {
                 color += colorContrib(waves[i],gl_FragCoord.xy);
-
             }
         }
     }
-if(mode==2){
-                color=color*150.0;
-            }
-    gl_FragColor = vec4( color, 1.0 );
+    if (mode == mode3d) {
+        color = color*150.0;
+    }
+    
+    gl_FragColor = vec4(color, 1.0);
 }
 
     </script>

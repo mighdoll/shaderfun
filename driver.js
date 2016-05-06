@@ -30,20 +30,27 @@ var frozen = false;         // set to millis to freeze animation at that frame
 var lastRenderMillis = 0;   // true millis of previous frame, ignoring frozen-ness
 var control;                // control panel state
 
+var decayingSineWave = 1;
+var decayingSquareWave = 2;
+var peakWave = 3;
+var mode3d = 2;
+var modeNormal = 1;
+
 /**  setup control panel */
 function controlPanel(randomizeFn, freezeFn) {
   var gui = new dat.GUI(),
       control = {
           speed: 1.0,
-          mode: 1,
-          wave: 1,
+          mode: modeNormal,
+          wave: decayingSineWave,
           randomize: randomizeFn,
           freeze: toFreeze,
           unfreeze: toFreeze
       };
   gui.add(control, 'speed', -5, 5);
-  gui.add(control, 'mode', { Normal: 1, '3D':2 } );
-  gui.add(control, 'wave', { Sine: 1, Square:2,Peak:3 } );
+  gui.add(control, 'mode', { Normal: modeNormal, '3D': mode3d } );
+  gui.add(control, 'wave', { Sine: decayingSineWave, Square: decayingSquareWave, 
+                             Peak: peakWave } );
   gui.add(control, 'randomize');
   var freezeControl = gui.add(control, 'freeze');
 
@@ -87,7 +94,14 @@ function resize(gl) {
  *  returns the compiled shader program and the webgl context */
 function setupWebGL(canvas) {
     var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
-        shaderSourceParams = {wavesLength: wavesLength},
+        shaderSourceParams = {
+            wavesLength: wavesLength,
+            decayingSineWave: decayingSineWave,
+            decayingSquareWave: decayingSquareWave,
+            peakWave: peakWave,
+            modeNormal: modeNormal,
+            mode3d: mode3d
+        },
         program = setupShaders(gl, shaderSourceParams);
 
     setupModel(gl, program);
