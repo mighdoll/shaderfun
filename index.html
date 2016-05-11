@@ -33,10 +33,10 @@ void main() {
 precision mediump float;
 #endif
 
-uniform int waveType;
-const int decayingSineWave = ${decayingSineWave};
-const int decayingSquareWave = ${decayingSquareWave};
-const int peakWave = ${peakWave};
+uniform float waveType;
+const float decayingSineWave = ${decayingSineWave};
+const float decayingSquareWave = ${decayingSquareWave};
+const float peakWave = ${peakWave};
 
 uniform int mode;
 const int modeNormal = ${modeNormal};
@@ -46,7 +46,21 @@ uniform float time;
 uniform vec2 resolution;
 uniform float timeOscillator;
 const int wavesLength = ${wavesLength};
-uniform vec4 waves[wavesLength]; // [x,y,time,hue]
+const int waveElements = 8;
+
+uniform sampler2D waveSampler;
+
+struct Wave {
+    vec2 position;
+    float startTime;
+    float hue;
+    float waveType;
+    /*
+    float _unused1;
+    float _unused2;
+    float _unused3;
+    */
+};
 
 const float PI = 3.1415926535897932384626433832795;
 const float PI2 = 2.0 * PI;
@@ -65,11 +79,11 @@ vec3 hsv2rgb(vec3 c) {
 }
 
 /** color via sin wave tamped by decaying exponential */
-vec3 decayingSine(vec4 wave,vec2 pos) {
-    vec2 fromCenter = abs(wave.xy - pos / resolution.yy);
+vec3 decayingSine(Wave wave, vec2 pos) {
+    vec2 fromCenter = abs(wave.position.xy - pos / resolution.yy);
     float distance = length(fromCenter);
-    float hue = wave.w;
-    float startTime = wave.z;
+    float hue = wave.hue;
+    float startTime = wave.startTime;
 
     float decayRate = -4.0;
     float scale = .5;
@@ -85,11 +99,12 @@ vec3 decayingSine(vec4 wave,vec2 pos) {
     vec3 rgb = hsv2rgb(vec3(hue+time/20.0, saturation, value));
     return rgb;
 }
-vec3 decayingSquare(vec4 wave,vec2 pos) {
-    vec2 fromCenter = abs(wave.xy - pos / resolution.yy);
+
+vec3 decayingSquare(Wave wave, vec2 pos) {
+    vec2 fromCenter = abs(wave.position.xy - pos / resolution.yy);
     float distance = length(fromCenter);
-    float hue = wave.w;
-    float startTime = wave.z;
+    float hue = wave.hue;
+    float startTime = wave.startTime;
 
     float decayRate = -4.0;
     float scale = .5;
@@ -110,11 +125,11 @@ float peak(float x){
     return abs(2.0-mod(x/PI*2.0,4.0))-1.0;
 }
 
-vec3 decayingPeak(vec4 wave,vec2 pos) {
-    vec2 fromCenter = abs(wave.xy - pos / resolution.yy);
+vec3 decayingPeak(Wave wave, vec2 pos) {
+    vec2 fromCenter = abs(wave.position.xy - pos / resolution.yy);
     float distance = length(fromCenter);
-    float hue = wave.w;
-    float startTime = wave.z;
+    float hue = wave.hue;
+    float startTime = wave.startTime;
 
     float decayRate = -4.0;
     float scale = .5;
@@ -160,11 +175,11 @@ float quarterSine(float x) {
     return y;
 }
 
-vec3 spinningSquare(vec4 wave) {
-    float hue = wave.w;
+vec3 spinningSquare(Wave wave) {
+    float hue = wave.hue;
     float saturation = .7;
-    float startTime = wave.z;
-    vec2 center = wave.xy;
+    float startTime = wave.startTime;
+    vec2 center = wave.position;
     vec2 d = abs(gl_FragCoord.xy / resolution.xy - center);    // vector to our pixel
     float distance = length(d);                                // distance to our pixel
     float t = quarterSine(time - startTime);
@@ -180,7 +195,7 @@ vec3 spinningSquare(vec4 wave) {
 
 
 /** color from one wave */
-vec3 colorContrib(vec4 wave, vec2 pos) {
+vec3 colorContrib(Wave wave, vec2 pos) {
     if (waveType == decayingSquareWave){
         return decayingSquare(wave, pos);
     } else if (waveType == peakWave){
@@ -189,19 +204,38 @@ vec3 colorContrib(vec4 wave, vec2 pos) {
     return decayingSine(wave, pos);
 }
 
+float floor2(float value, float divisor) {
+    return floor(value / divisor) * divisor;
+}
+
+/** retrieve a Wave from the data texture referenced by waveSampler */
+Wave getWave(int index) {
+    const float rgbaElements = 4.0;
+    const float texelsPerWave = float(waveElements) / rgbaElements; 
+    const float texels = float(wavesLength) * texelsPerWave;        
+    const float texelSize = 1.0 / texels;                           
+
+    float u = float(index) * texelsPerWave * texelSize;             
+    vec4 v1 = texture2D(waveSampler, vec2(u, 0));
+    vec4 v2 = texture2D(waveSampler, vec2(u + texelSize, 0));       
+
+    return Wave(v1.rg, v1.b, v1.a, v2.r);
+}
+
 /** accumulate a color from all the waves for this pixel. */
 void main( void ) {
     vec3 color = vec3(0.0, 0.0, 0.0);
     if (mode == mode3d) {
         color = vec3(0.003);
     }
-    for (int i =0; i < wavesLength; i++) {
-        if (waves[i].z > 0.0) {
+    for (int i = 0; i < wavesLength; i++) {
+        Wave wave = getWave(i);
+        if (wave.startTime > 0.0) {
             if (mode == mode3d) {
-                color += vec3(length(colorContrib(waves[i],gl_FragCoord.xy)));
-                color -= vec3(length(colorContrib(waves[i],gl_FragCoord.xy+vec2(10.0)/resolution.xy)));
+                color += vec3(length(colorContrib(wave,gl_FragCoord.xy)));
+                color -= vec3(length(colorContrib(wave,gl_FragCoord.xy+vec2(10.0)/resolution.xy)));
             } else {
-                color += colorContrib(waves[i],gl_FragCoord.xy);
+                color += colorContrib(wave,gl_FragCoord.xy);
             }
         }
     }
@@ -210,6 +244,16 @@ void main( void ) {
     }
     
     gl_FragColor = vec4(color, 1.0);
+
+    /*
+    // manual test code
+    Wave wave = getWave(0);
+    if (wave.hue == .65) {
+        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+    } else {
+        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    }
+    */
 }
 
     </script>

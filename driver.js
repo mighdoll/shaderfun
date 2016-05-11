@@ -4,13 +4,16 @@
 
     /** waves are passed to the shader
      *
-     * each wave has four elements: x, y, time, hue
+     * each wave has five elements: x, y, time, hue, waveType
      * x,y are the floating point coordinates of the mouse in the range [0,1]
      * time is fractional seconds. if time = -1.0 the wave is disabled.
      * hue is in the range [0,1]
+     * waveType indicates what shape and how sharp to make the wave (circular, square, etc.) 
      */
-    var waves = [];
     var wavesLength = 50; // length of the waves array
+
+    var waveElements = 8;
+    var waves = new Float32Array(wavesLength * waveElements);
 
     var gl;
     var program;
@@ -27,9 +30,9 @@
     var lastRenderMillis = 0; // true millis of previous frame, ignoring frozen-ness
     var control; // control panel state
 
-    var decayingSineWave = 1;
-    var decayingSquareWave = 2;
-    var peakWave = 3;
+    var decayingSineWave = .1;
+    var decayingSquareWave = .2;
+    var peakWave = .3;
     var mode3d = 2;
     var modeNormal = 1;
 
@@ -100,6 +103,7 @@
 
     function setupWebGL(canvas) {
         var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl"),
+            ext = gl.getExtension("OES_texture_float"),
             shaderSourceParams = {
                 wavesLength: wavesLength,
                 decayingSineWave: decayingSineWave,
@@ -128,11 +132,11 @@
         }
 
         function setupUniforms(gl, program) {
-            program.waves = gl.getUniformLocation(program, "waves");
             program.time = gl.getUniformLocation(program, "time");
             program.resolution = gl.getUniformLocation(program, "resolution");
             program.waveType = gl.getUniformLocation(program, "waveType");
             program.mode = gl.getUniformLocation(program, "mode");
+            program.waveSampler = gl.getUniformLocation(program, "waveSampler");
         }
 
         function setupShaders(gl, params) {
@@ -208,8 +212,11 @@
 
         function addWave(mouseXY, millis) {
             var time = millis / 1000.0;
-            var dropLast = waves.slice(0, waves.length - 4);
-            waves = [mouseXY[0], mouseXY[1], time, randomHue()].concat(dropLast);
+            waves.copyWithin(0, waveElements);
+            var newWave = new Float32Array(
+                [mouseXY[0], mouseXY[1], time, randomHue(), decayingSineWave]);
+            var lastDex = (wavesLength-1) * waveElements;
+            waves.set(newWave, lastDex);
         }
 
         function setupMouse(canvas) {
@@ -302,11 +309,8 @@
     /* disable all waves */
 
     function clearWaves() {
-        for (var i = 0; i < wavesLength * 4;) {
-            waves[i++] = [0.5];
-            waves[i++] = [0.5];
-            waves[i++] = [-1.0];
-            waves[i++] = [0.0];
+        for (var i = 0; i < wavesLength; i++) {
+            writeWave(i, [0.5, 0.5], -1, 0.0, decayingSineWave);
         }
     }
 
@@ -317,11 +321,8 @@
             randomY = randomMarkov(.1, .1, .4),
             randomTime = randomMarkov(.5, 0),
             randomHue = randomMarkov(.05, .1, .5);
-        for (var i = 0; i < wavesLength * 4;) {
-            waves[i++] = [randomX()];
-            waves[i++] = [randomY()];
-            waves[i++] = [randomTime()];
-            waves[i++] = [randomHue()];
+        for (var i = 0; i < wavesLength; i++) {
+            writeWave(i, [randomX(), randomY()], randomTime(), randomHue(), decayingSineWave);
         }
     }
 
@@ -331,11 +332,20 @@
         clearWaves();
         frozen = 1;
         lastRenderMillis = 1;
-        var i = 0;
-        waves[i++] = .5;
-        waves[i++] = .5;
-        waves[i++] = 1 / 1000.0;
-        waves[i++] = .65;
+
+        for (var j = 0; j < wavesLength; j++) {
+            writeWave(j, [j/10.0, .5], 1/1000.0, .65, decayingSineWave);        
+        }
+    }
+
+    /** store all elements of a wave in the array. waveElements 32 bit floats. */
+    function writeWave(index, position, startTime, hue, waveType) {
+        var i = index * waveElements;
+        waves[i++] = position[0];
+        waves[i++] = position[1];
+        waves[i++] = startTime;
+        waves[i++] = hue;
+        waves[i++] = waveType;
     }
 
     function init() {
@@ -360,6 +370,40 @@
     }
 
 
+    /** send current wave array to shader */
+    
+    function sendWaves(gl) {
+        sendDataViaTexture(gl, program.wavesSampler, "wavesSampler", waves);
+    }
+
+    /** send data to shader by embedding it in a texture */
+
+    function sendDataViaTexture(gl, uniformLocation, uniformName, floatArray) {
+        var texture = createDataTexture(gl, floatArray),
+            textureUnit = 0;
+            
+        gl.activeTexture(gl.TEXTURE0 + textureUnit);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(uniformLocation, textureUnit);
+    }
+
+    /** create wide one texel high texture to hold an array of floats.
+        Note that the floats should be in the range [0,1] */
+
+    function createDataTexture(gl, floatArray) {
+        var width = floatArray.length / 4, // R,G,B,A
+            height = 1,
+            texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D,
+           0, gl.RGBA, width, height, 0, gl.RGBA, gl.FLOAT, floatArray);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        return texture;
+    }
+
     /** render one frame, and repeat */
 
     function render(millis) {
@@ -377,10 +421,10 @@
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         gl.uniform1f(program.time, millis / 1000.0);
-        gl.uniform1i(program.waveType, control.wave);
+        gl.uniform1f(program.waveType, control.wave);
         gl.uniform1i(program.mode, control.mode);
         gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
-        gl.uniform4fv(program.waves, waves);
+        sendWaves(gl);
 
         gl.drawArrays(gl.TRIANGLES, 0, triangleVertices.length / 2);
         stats.end();
