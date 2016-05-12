@@ -41,6 +41,7 @@ const float peakWave = ${peakWave};
 uniform int mode;
 const int modeNormal = ${modeNormal};
 const int mode3d = ${mode3d};
+const int modeTest = ${modeTest};
 
 uniform float time;
 uniform vec2 resolution;
@@ -222,39 +223,64 @@ Wave getWave(int index) {
     return Wave(v1.rg, v1.b, v1.a, v2.r);
 }
 
-/** accumulate a color from all the waves for this pixel. */
-void main( void ) {
-    vec3 color = vec3(0.0, 0.0, 0.0);
-    if (mode == mode3d) {
-        color = vec3(0.003);
-    }
+bool isActive(Wave wave) {
+    return wave.startTime >= 0.0;
+}
+
+/** accumulate a color from all the waves for this pixel, in greyscale 3d shadow mode */
+vec3 threeMode() {
+    vec3 color = vec3(0.003);
     for (int i = 0; i < wavesLength; i++) {
         Wave wave = getWave(i);
-        if (wave.startTime > 0.0) {
-            if (mode == mode3d) {
-                color += vec3(length(colorContrib(wave,gl_FragCoord.xy)));
-                color -= vec3(length(colorContrib(wave,gl_FragCoord.xy+vec2(10.0)/resolution.xy)));
-            } else {
-                color += colorContrib(wave,gl_FragCoord.xy);
-            }
+        if (isActive(wave)) {
+            color += vec3(length(colorContrib(wave,gl_FragCoord.xy)));
+            color -= vec3(length(colorContrib(wave,gl_FragCoord.xy+vec2(10.0)/resolution.xy)));
         }
     }
-    if (mode == mode3d) {
-        color = color*150.0;
+    color = color*150.0;
+    return color;
+}
+
+/** accumulate a color from all the waves for this pixel, in normal color mode. */
+vec3 normalColorMode() {
+    vec3 color = vec3(0.0, 0.0, 0.0);
+    for (int i = 0; i < wavesLength; i++) {
+        Wave wave = getWave(i);
+        if (isActive(wave)) {
+            color += colorContrib(wave,gl_FragCoord.xy);
+        }
     }
     
-    gl_FragColor = vec4(color, 1.0);
+    return color;
+}
 
-    /*
-    // manual test code
+
+/** manual test code */
+vec3 testMode() {
+    const vec3 green = vec3(0.0, 1.0, 0.0);
+    const vec3 red = vec3(1.0, 0.0, 0.0);
     Wave wave = getWave(0);
     if (wave.hue == .65) {
-        gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+        return green;
     } else {
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+        return red;
     }
-    */
 }
+
+/** accumulate a color from all the waves for this pixel. */
+void main( void ) {
+    vec3 color;
+    if (mode == mode3d) {
+        color = threeMode();
+    } else if (mode == modeNormal) {
+        color = normalColorMode();
+    } else if (mode == modeTest) {
+        color = testMode();
+    }
+    gl_FragColor = vec4(color, 1.0);
+
+}
+
 
     </script>
 </head>

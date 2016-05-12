@@ -33,6 +33,7 @@
     var decayingSineWave = .1;
     var decayingSquareWave = .2;
     var peakWave = .3;
+    var modeTest = 3;
     var mode3d = 2;
     var modeNormal = 1;
 
@@ -51,7 +52,8 @@
         gui.add(control, 'speed', -5, 5);
         gui.add(control, 'mode', {
                 Normal: modeNormal,
-                '3D': mode3d
+                '3D': mode3d,
+                Test: modeTest
             });
         gui.add(control, 'wave', {
                 Sine: decayingSineWave,
@@ -110,7 +112,8 @@
                 decayingSquareWave: decayingSquareWave,
                 peakWave: peakWave,
                 modeNormal: modeNormal,
-                mode3d: mode3d
+                mode3d: mode3d,
+                modeTest: modeTest
             },
             program = setupShaders(gl, shaderSourceParams);
 
