@@ -32,10 +32,12 @@
 
     var decayingSineWave = .1;
     var decayingSquareWave = .2;
-    var peakWave = .3;
-    var modeTest = 3;
-    var mode3d = 2;
+    var spinningSquareWave = .3;
+    var peakWave = .4;
+
     var modeNormal = 1;
+    var mode3d = 2;
+    var modeTest = 3;
 
     /**  setup control panel */
 
@@ -56,8 +58,9 @@
                 Test: modeTest
             });
         gui.add(control, 'wave', {
-                Sine: decayingSineWave,
-                Square: decayingSquareWave,
+                'Fuzzy Rings': decayingSineWave,
+                'Hard Rings': decayingSquareWave,
+                'Spnning Square': spinningSquareWave,                
                 Peak: peakWave
             });
         gui.add(control, 'randomize');
@@ -110,6 +113,7 @@
                 wavesLength: wavesLength,
                 decayingSineWave: decayingSineWave,
                 decayingSquareWave: decayingSquareWave,
+                spinningSquareWave: spinningSquareWave,
                 peakWave: peakWave,
                 modeNormal: modeNormal,
                 mode3d: mode3d,
@@ -214,11 +218,12 @@
         }
 
         function addWave(mouseXY, millis) {
-            var time = millis / 1000.0;
+            var time = millis / 1000.0,
+                waveType = control.wave,
+                newWave = new Float32Array([mouseXY[0], mouseXY[1], time, 
+                                randomHue(), waveType]),
+                lastDex = (wavesLength-1) * waveElements;
             waves.copyWithin(0, waveElements);
-            var newWave = new Float32Array(
-                [mouseXY[0], mouseXY[1], time, randomHue(), decayingSineWave]);
-            var lastDex = (wavesLength-1) * waveElements;
             waves.set(newWave, lastDex);
         }
 
@@ -424,7 +429,6 @@
         gl.clear(gl.COLOR_BUFFER_BIT);
 
         gl.uniform1f(program.time, millis / 1000.0);
-        gl.uniform1f(program.waveType, control.wave);
         gl.uniform1i(program.mode, control.mode);
         gl.uniform2f(program.resolution, window.innerWidth, window.innerHeight);
         sendWaves(gl);

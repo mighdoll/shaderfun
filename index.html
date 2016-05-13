@@ -33,9 +33,9 @@ void main() {
 precision mediump float;
 #endif
 
-uniform float waveType;
 const float decayingSineWave = ${decayingSineWave};
 const float decayingSquareWave = ${decayingSquareWave};
+const float spinningSquareWave = ${spinningSquareWave};
 const float peakWave = ${peakWave};
 
 uniform int mode;
@@ -197,12 +197,15 @@ vec3 spinningSquare(Wave wave) {
 
 /** color from one wave */
 vec3 colorContrib(Wave wave, vec2 pos) {
-    if (waveType == decayingSquareWave){
+    if (wave.waveType == decayingSineWave){
+        return decayingSine(wave, pos);
+    } else if (wave.waveType == decayingSquareWave){
         return decayingSquare(wave, pos);
-    } else if (waveType == peakWave){
+    } else if (wave.waveType == peakWave){
         return decayingPeak(wave, pos);
+    } else if (wave.waveType == spinningSquareWave) {
+        return spinningSquare(wave);
     }
-    return decayingSine(wave, pos);
 }
 
 float floor2(float value, float divisor) {
